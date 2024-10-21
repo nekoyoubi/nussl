@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Sample HTML Page</title>
+		<link rel="stylesheet" href="/css/styles.css" />
+		<script src="/js/nussl.js"></script>
+		<style lang="text/css">
+			.red { color: red; }
+			.blue { color: blue; }
+			.outline { border: 1px solid red; }
+			.copyleft { display:inline-block; rotate:180deg; translate: 0 -1px; }
+			.text-smol { font-size: small; }
+			pre { background-color: #f0f0f0; padding: 1em; border: 1px solid #ccc; overflow: scroll; }
+		</style>
+	</head>
+	<body>
+		<header>
+			<h1>nussl.js</h1>
+		</header>
+		<nav>
+			<ul>
+				<li><a href="#s1">Interactive</a></li>
+				<li><a href="#s2">Containers</a></li>
+				<li><a href="#s3">Controls</a></li>
+				<li><a href="#s4">Content</a></li>
+				<li><a href="#s5">License</a></li>
+			</ul>
+		</nav>
+		<main>
+			<section>
+				<h2 id="s1">Interactive Elements</h2>
+				<form>
+					<label for="username">Username:</label>
+					<input type="text" id="username" name="username" /><br />
+					<label for="email">Email:</label>
+					<input type="email" id="email" name="email" /><br />
+					<label for="password">Password:</label>
+					<input type="password" id="password" name="password" /><br />
+					<button type="submit">Submit</button>
+				</form>
+			</section>
+			<section>
+				<h2 id="s2">Containers</h2>
+				<div class="container">
+					<p>This is a container div.</p>
+				</div>
+				<article>
+					<h3>Article Section</h3>
+					<p>This is an article section.</p>
+				</article>
+				<aside>
+					<h3>Aside Section</h3>
+					<p>This is an aside section.</p>
+				</aside>
+			</section>
+			<section>
+				<h2 id="s3">Moar Controls!</h2>
+				<button onclick="alert('Button clicked!')">Click Me</button>
+				<label for="options">Options:</label>
+				<select id="options" title="Options">
+					<option value="option1">Option 1</option>
+					<option value="option2">Option 2</option>
+					<option value="option3">Option 3</option>
+				</select>
+				<input type="checkbox" id="checkbox1" name="checkbox1" />
+				<label for="checkbox1">Checkbox</label><br />
+				<input type="radio" id="radio1" name="radio" />
+				<label for="radio1">Radio 1</label><br />
+				<input type="radio" id="radio2" name="radio" />
+				<label for="radio2">Radio 2</label>
+			</section>
+			<h2 id="s4">Content!</h2>
+			<p>
+				Here's some content for you to enjoy. Please feel free to hack away at it as you see fit.
+				It'll be fun for the whole family. Just remember to keep it clean and don't break anything... 
+				<br><br>
+				<strong>... unless <em>you're</em> fixing it!</strong>
+			</p>
+			<h2 id="s5">MIT License</h2>
+			<pre>
+Copyright (c) 2024 
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+			</pre>
+		</main>
+		<footer>
+			<div><span class="copyleft">&copy;</span> <span><span class="text-smol">2024</span> nekoyoubi.com</span></div>
+		</footer>
+	</body>
+	<script>
+		//ensureTailwindCss();
+		nusslCss(".red { color: green; }");
+		always().when("h2,h3,h1,code")
+			.gets("mouseenter").then(element => element.classList.add("blue")).and()
+			.gets("mouseleave").after(250, element => element.classList.remove("blue"));
+		once().when("p")
+			.gets("mouseenter").then(e => e.classList.add("red")).and()
+			.gets("mouseleave").after(10, e => e.classList.remove("red"));
+		until().all("p", "code").exists(els => els.forEach(el => el.classList.add("outline")));
+		only(el => el.value == "n").when("#username").gets("click").then(el => el.value = "nekoyoubi");
+		setTimeout(() => createAndAppendElement("code", { id: "codey" }, { textContent: "Some code."}, document.body), 2000);
+	</script>
+</html>
