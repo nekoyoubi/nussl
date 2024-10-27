@@ -21,7 +21,7 @@
 		</header>
 		<nav>
 			<ul>
-				<li><a href="#s1">Interactive</a></li>
+				<li><a href="#s1">Form</a></li>
 				<li><a href="#s2">Containers</a></li>
 				<li><a href="#s3">Controls</a></li>
 				<li><a href="#s4">Content</a></li>
@@ -30,7 +30,7 @@
 		</nav>
 		<main>
 			<section>
-				<h2 id="s1">Interactive Elements</h2>
+				<h2 id="s1">Form</h2>
 				<form>
 					<label for="username">Username:</label>
 					<input type="text" id="username" name="username" /><br />
@@ -70,6 +70,8 @@
 				<label for="radio1">Radio 1</label><br />
 				<input type="radio" id="radio2" name="radio" />
 				<label for="radio2">Radio 2</label>
+				<br /> <br />
+				<a href="javascript:void(0);" id="logo">{LOGO}</a>
 			</section>
 			<h2 id="s4">Content!</h2>
 			<p>
@@ -110,12 +112,25 @@ SOFTWARE.
 		nusslCss(".red { color: green; }");
 		always().when("h2,h3,h1,code")
 			.gets("mouseenter").then(element => element.classList.add("blue")).and()
-			.gets("mouseleave").after(250, element => element.classList.remove("blue"));
+		 	.gets("mouseleave").after(250, element => element.classList.remove("blue"));
 		once().when("p")
-			.gets("mouseenter").then(e => e.classList.add("red")).and()
-			.gets("mouseleave").after(10, e => e.classList.remove("red"));
-		until().all("p", "code").exists(els => els.forEach(el => el.classList.add("outline")));
-		only(el => el.value == "n").when("#username").gets("click").then(el => el.value = "nekoyoubi");
-		setTimeout(() => createAndAppendElement("code", { id: "codey" }, { textContent: "Some code."}, document.body), 2000);
+		 	.gets("mouseenter").then(e => e.classList.add("red")).and()
+		 	.gets("mouseleave").after(10, e => e.classList.remove("red"));
+		//until().all("p", "code").exists(els => els.forEach(el => el.classList.add("outline"))); // this is broken (intent-wise)
+		once().when("#username").gets("click").then(el => el.value = "nekoyoubi");
+		replace("#s5").with(create("h2").set({id: "s5", style: "color:red;"}, { innerHTML: "The MIT License... duh!" }));
+		find("#s4").set({style: "color:chartreuse;", id: "s6"}, {innerHTML: "Content 2.0!"});
+		find("#s7")
+			.or(create("h1").on("main").up(2).set({ id: "s7", style: "border: 2px solid aqua;"}, { innerHTML: "s7?"}))
+			.set({ style__$: " color:chocolate;"}, { innerHTML: "Content 3.0!" }/**/)
+			.set({ $__style: " text-decoration:underline;"}, { innerHTML: (old) => old.slice(0,-1)+".1" }/**/);
+		create("h2").on("main")
+			.set({ id: "s8", style: "color:blue;"}, { innerHTML: "Content 4.0"})
+			.set({}, { innerText__$: ".1!" })
+			.set({}, { $__textContent: "NEWS: ", innerText__$: old => old.slice(0, -1) + "2.34!" });
+		find("#s3").hide(true).hide(false);
+		//find("#s4").or("h2").on("main").set({id:"s44", style: "color:orange;"}, { innerHTML: "New thing" }).move("in");
+		//once().any("button").exists(button => console.log(button));
+		//setTimeout(() => createAndAppendElement("code", { id: "codey", style:"width:100px;height:100px;" }, { textContent: "Some code."}, document.body), 2000);
 	</script>
 </html>

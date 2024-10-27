@@ -1,9 +1,10 @@
 /*!
- * nussl.js v0.1.0
+ * nussl.js v0.2.0
  * https://github.com/nekoyoubi/nussl/js/nussl.js
  * (c) 2024 http://nekoyoubi.com
  * Released under the MIT License.
- * Example usages:
+ * 
+ * ElementWatcher example usage:
  * always().when("button").gets("click").then(element => element.classList.toggle("active"));
  * always().when("button", "input.button").gets("click").after(1000, element => element.classList.toggle("active"));
  * always().when("h1,h2,h3,h4,h5,h6").gets("mouseenter").then(element => element.classList.add("highlight")).and().gets("mouseleave").after(250, element => element.classList.remove("highlight"));
@@ -13,6 +14,16 @@
  * until().any("#element1", "#element2").exists(elements => elements.forEach(element => console.log(`Element found: ${element}`)));
  * until().all("#element1", "#element2").exists(elements => alert("All elements found!"));
  * unless().any("#element1", "#element2").exists(elements => alert("No elements found!"));
+ * 
+ * ElementManager example usage:
+ * find("button").set({ id: "submit-button", class: "btn btn-primary", innerText: "Submit"});
+ * find("#ad-row").hide();
+ * find("#ad-row").remove();
+ * replace("#ad-row").with("div").set({ id: "info-row", class: "row" });
+ * create("div").set({ id: "addon-container", class: "container" }).on("body");
+ * find("#submit-button").or(create("button").on("#login-form")).set({ id: "submit-button", class: "btn btn-primary", innerText: "Submit" });
+ * find("#submit-button").move("form");
+ * create("span").set({ id: "error-message", innerText: "An error occurred." }).move("body").up(9999);
  */
 
 class ElementWatcher {
@@ -40,7 +51,7 @@ class ElementWatcher {
 
 	static only(condition) {
 		const instance = new ElementWatcher();
-		instance.condition = condition;
+		instance.condition = condition ?? (() => true);
 		return instance;
 	}
 
@@ -123,15 +134,18 @@ class ElementWatcher {
 			).length;
 
 			if (forExistence) {
-				if (
-					this.requireAll &&
-					foundSelectorsCount === this.selectors.length
-				) {
-					this.callback(flattenedElements);
+				if (this.requireAll && foundSelectorsCount === this.selectors.length) {
+					if (typeof this.callback === 'function') {
+						this.callback(flattenedElements);
+					}
 				} else if (this.requireAny && flattenedElements.length > 0) {
-					this.callback(flattenedElements);
+					if (typeof this.callback === 'function') {
+						this.callback(flattenedElements);
+					}
 				} else if (this.unless && flattenedElements.length === 0) {
-					this.callback();
+					if (typeof this.callback === 'function') {
+						this.callback();
+					}
 				}
 			} else {
 				flattenedElements.forEach((element) => {
@@ -162,15 +176,21 @@ class ElementWatcher {
 		};
 
 		const observerCallback = (mutations, observer) => {
+			// Rerun the evaluation to check if any elements now exist
 			evaluateElements();
 			if (this.once && forExistence) {
 				observer.disconnect();
 			}
 		};
 
+		// Observe mutations to the document to detect when elements are added/removed
 		const observer = new MutationObserver(observerCallback);
 		observer.observe(document.body, { childList: true, subtree: true });
-		evaluateElements();
+
+		// Initial evaluation for already existing elements
+		if (forExistence) {
+			evaluateElements();
+		}
 	}
 }
 
@@ -180,18 +200,165 @@ const until = ElementWatcher.until;
 const only = ElementWatcher.only;
 const unless = ElementWatcher.unless;
 
+
+class ElementManager {
+	constructor() {
+		this.element = null;
+		this.replaced = null;
+	}
+
+	static find(selector) {
+		return new ElementManager().find(selector);
+	}
+
+	static create(tag) {
+		return new ElementManager().create(tag);
+	}
+
+	static replace(selector) {
+		return new ElementManager().replace(selector);
+	}
+
+	find(selector) {
+		this.element = document.querySelector(selector);
+		return this;
+	}
+
+	create(tag) {
+		this.element = document.createElement(tag);
+		return this;
+	}
+
+	replace(selector) {
+		this.replaced = document.querySelector(selector);
+		return this;
+	}
+
+	or(elementManager) {
+		return (this.element) ? this : elementManager;
+	}
+
+	on(parentOrSelector) {
+		if (!this.element?.isConnected)
+			(
+				typeof parentOrSelector === "string" ? document.querySelector(parentOrSelector)
+				: parentOrSelector instanceof HTMLElement ? parentOrSelector
+				: document.body
+			)?.append(this.element);
+		return this;
+	}
+
+	set(attributes = {}, content = {}) {
+		function getKey(givenKey) {
+			return givenKey.match(/^(?:\$__)?(?<val>.+?)(?:__\$)?$/)?.groups?.val ?? givenKey;
+		}
+		if (attributes) {
+			Object.keys(attributes).forEach((givenKey) => {
+				const key = getKey(givenKey);
+				const old = this.element?.getAttribute(key);
+				const nu = attributes[givenKey];
+				if (givenKey.endsWith("__$")) {
+					this.element.setAttribute(key, (old ?? "") + nu);
+				} else if (givenKey.startsWith("$__")) {
+					this.element.setAttribute(key, (nu + old ?? ""));
+				} else {
+					this.element.setAttribute(key, nu);
+				}
+			});
+		}
+		if (content) {
+			Object.keys(content).forEach((givenKey) => {
+				let key = getKey(givenKey);
+				const fun =
+					typeof content[givenKey] === 'function'	? content[givenKey] :
+					(old) => 
+						givenKey.endsWith("__$") ? (old ?? "") + content[givenKey] :
+						givenKey.startsWith("$__") ? content[givenKey] + (old ?? "") :
+						content[givenKey];
+				this.element[key] = fun(this.element[key]);
+			});
+		}
+		return this;
+	}
+
+	with(elementManager) {
+		this.replaced?.replaceWith(elementManager.element);
+		return elementManager;
+	}
+
+	move(directionOrSelector = "body", amount = 1) {
+		if (["in", "out"].includes(directionOrSelector)) {
+			return this[directionOrSelector](amount);
+		}
+		else if (["up", "down"].includes(directionOrSelector)) {
+			while (amount > 0) {
+				const sibling = directionOrSelector === "up" ? this.element.previousElementSibling : this.element.nextElementSibling;
+				if (!sibling) break;
+				let params = [this.element, sibling];
+				if (directionOrSelector === "down") params = params.reverse();
+				this.element.parentNode.insertBefore(...params);
+				amount--;
+			}
+		} else {
+			document.querySelector(directionOrSelector)?.append(this.element);
+		}
+		return this;
+	}
+
+	up(amount = 1) {
+		return this.move("up", amount);
+	}
+
+	down(amount = 1) {
+		return this.move("down", amount);
+	}
+
+	out(amount = 1) {
+		while (amount > 0 && this.element.parentNode && this.element.parentNode !== document.body) {
+			const parentElement = this.element.parentNode;
+			if (parentElement.parentNode)
+				parentElement.parentNode.insertBefore(this.element,parentElement.nextSibling);
+			amount--;
+		}
+		return this;
+	}
+
+	in(amount = 1) {
+		while (amount > 0) {
+			const previousSibling = this.element.previousElementSibling;
+			if (!previousSibling) break;
+			previousSibling.appendChild(this.element);
+			amount--;
+		}
+		return this;
+	}
+
+	hide(hidden = true) {
+		const style = this.element?.getAttribute("style") ?? "";
+		const hiddenStyle = ";/*hide--*/;display:none !important;/*--hide*/;";
+		if (hidden && !style.includes(hiddenStyle))
+			return this.set({ style__$: ";/*hide--*/;display:none !important;/*--hide*/;" });
+		else if (!hidden && style.includes(hiddenStyle))
+			return this.set({ style: style?.replace(/\/\*hide--\*\/;display:none !important;\/\*--hide\*\//, "") });
+		else
+			return this;
+	}
+
+
+}
+
+const find = ElementManager.find;
+const create = ElementManager.create;
+const replace = ElementManager.replace;
+
+
 /**
  * Ensures that Tailwind CSS is included in the document by finding or creating a link element
  * with the specified attributes and appending it to the document head.
  */
 function ensureTailwindCss() {
-	findOrCreateElement(
-		"#nussl-core-tailwindcss",
-		"script",
-		{ src: "https://cdn.tailwindcss.com", id: "nussl-core-tailwindcss", },
-		null,
-		document.body
-	);
+	find("#nussl-core-tailwindcss").or(
+		create("script").set({ src: "https://cdn.tailwindcss.com", id: "nussl-core-tailwindcss", }).on(document.body));
 }
 
 /**
@@ -200,63 +367,62 @@ function ensureTailwindCss() {
  * @param {string} css - The CSS string to be added to the document.
  */
 function nusslCss(css) {
-	const style = findOrCreateElement("#nussl-core-css", "style", { type: "text/css", id: "nussl-core-css" }, null, document.head);
-	style.textContent = css;
+	find("#nussl-core-css").or(
+		create("style").set({ type: "text/css", id: "nussl-core-css" }, { textContent: css }).on(document.head));
+	//style.textContent = css;
 }
 
-/**
- * Finds an existing element or creates a new one, setting its attributes and inner content, and appends it to the specified parent element.
- *
- * @param {string} selector - The CSS selector to use to find an existing element.
- * @param {string} tag - The type of HTML element to create (e.g., 'div', 'span', 'p').
- * @param {Object} [attributes={}] - An object containing key-value pairs of attributes to set on the element.
- * @param {Object} [inner={ html: null, innerText: null, textContent: null }] - An object containing 'html', 'innerText', or 'textContent' to set as the inner content of the element.
- * @param {string} [inner.html=null] - HTML content to set inside the element.
- * @param {string} [inner.innerText=null] - Inner text to set inside the element.
- * @param {string} [inner.textContent=null] - Text content to set inside the element.
- * @param {HTMLElement} [parent=document.body] - The parent element to which the new element will be appended. Defaults to document.body.
- * @returns {HTMLElement} The existing or newly created HTML element.
- */
-function findOrCreateElement(
-	selector,
-	tag,
-	attributes = {},
-	inner = { html: null, innerText: null, textContent: null },
-	parent
-) {
-	const element =
-		document.querySelector(selector) ??
-		createAndAppendElement(tag, attributes, inner, parent);
-	return element;
-}
+// /**
+//  * Finds an existing element or creates a new one, setting its attributes and inner content, and appends it to the specified parent element.
+//  *
+//  * @param {string} selector - The CSS selector to use to find an existing element.
+//  * @param {string} tag - The type of HTML element to create (e.g., 'div', 'span', 'p').
+//  * @param {Object} [attributes={}] - An object containing key-value pairs of attributes to set on the element.
+//  * @param {Object} [inner={ html: null, innerText: null, textContent: null }] - An object containing 'html', 'innerText', or 'textContent' to set as the inner content of the element.
+//  * @param {string} [inner.html=null] - HTML content to set inside the element.
+//  * @param {string} [inner.innerText=null] - Inner text to set inside the element.
+//  * @param {string} [inner.textContent=null] - Text content to set inside the element.
+//  * @param {HTMLElement} [parent=document.body] - The parent element to which the new element will be appended. Defaults to document.body.
+//  * @returns {HTMLElement} The existing or newly created HTML element.
+//  */
+// function findOrCreateElement(
+// 	selector,
+// 	tag,
+// 	attributes = {},
+// 	inner = { html: null, innerText: null, textContent: null },
+// 	parent
+// ) {
+// 	const element =
+// 		document.querySelector(selector) ??
+// 		createAndAppendElement(tag, attributes, inner, parent);
+// 	return element;
+// }
 
-/**
- * Creates a new HTML element, sets its attributes and inner content, and appends it to a parent element.
- *
- * @param {string} tag - The type of HTML element to create (e.g., 'div', 'span', 'p').
- * @param {Object} [attributes={}] - An object containing key-value pairs of attributes to set on the element.
- * @param {Object} [inner={ html: null, innerText: null, textContent: null }] - An object containing 'html', 'innerText', or 'textContent' to set as the inner content of the element.
- * @param {string} [inner.html=null] - HTML content to set inside the element.
- * @param {string} [inner.innerText=null] - Inner text to set inside the element.
- * @param {string} [inner.textContent=null] - Text content to set inside the element.
- * @param {HTMLElement} [parent=document.body] - The parent element to which the new element will be appended. Defaults to document.body.
- * @returns {HTMLElement} The newly created HTML element.
- */
-function createAndAppendElement(
-	tag,
-	attributes = {},
-	inner = { html: null, innerText: null, textContent: null },
-	parent
-) {
-	const element = document.createElement(tag);
-	inner = inner ?? { html: null, text: null };
-	if (attributes)
-		Object.keys(attributes).forEach((key) =>
-			element.setAttribute(key, attributes[key])
-		);
-	(parent ?? document.body).append(element);
-	if (inner?.innerText) element.innerText = inner.innerText;
-	else if (inner?.textContent) element.textContent = inner.textContent;
-	else if (inner?.html) element.innerHTML = inner.html;
-	return element;
-}
+// /**
+//  * Creates a new HTML element, sets its attributes and inner content, and appends it to a parent element.
+//  *
+//  * @param {string} tag - The type of HTML element to create (e.g., 'div', 'span', 'p').
+//  * @param {Object} [attributes={}] - An object containing key-value pairs of attributes to set on the element.
+//  * @param {Object} [inner={ html: null, innerText: null, textContent: null }] - An object containing 'html', 'innerText', or 'textContent' to set as the inner content of the element.
+//  * @param {HTMLElement} [parent=document.body] - The parent element to which the new element will be appended. Defaults to document.body.
+//  * @returns {HTMLElement} The newly created HTML element.
+//  */
+// function createAndAppendElement(
+// 	tag,
+// 	attributes = {},
+// 	inner = { html: null, innerText: null, textContent: null },
+// 	parent
+// ) {
+// 	const element = document.createElement(tag);
+// 	inner = inner ?? { html: null, text: null };
+// 	if (attributes)
+// 		Object.keys(attributes).forEach((key) =>
+// 			element.setAttribute(key, attributes[key])
+// 		);
+// 	(parent ?? document.body).append(element);
+// 	if (inner?.innerText) element.innerText = inner.innerText;
+// 	else if (inner?.textContent) element.textContent = inner.textContent;
+// 	else if (inner?.html) element.innerHTML = inner.html;
+// 	return element;
+// }
+
