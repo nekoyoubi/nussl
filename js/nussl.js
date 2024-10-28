@@ -21,9 +21,13 @@
  * find("#ad-row").remove();
  * replace("#ad-row").with("div").set({ id: "info-row", class: "row" });
  * create("div").set({ id: "addon-container", class: "container" }).on("body");
- * find("#submit-button").or(create("button").on("#login-form")).set({ id: "submit-button", class: "btn btn-primary", innerText: "Submit" });
+ * find("#submit-button") // .or() segment is bypassed on found; .then() segment is applied to either found or created element
+ * 	.or().create("button").on("#login-form").set({ id: "submit-button", class: "btn btn-primary", innerText: "Submit" })
+ * 	.then().set({ class__$: "btn-lg bg-blue-500" });
  * find("#submit-button").move("form");
  * create("span").set({ id: "error-message", innerText: "An error occurred." }).move("body").up(9999);
+ * create("button").set({ id: "alert-button", innerText: "Alert!" }).on("body").up(12345).listen("click", () => alert("Button clicked!"));
+ * use(document.querySelector("#alert-button")).hide();
  */
 
 class ElementWatcher {
@@ -204,6 +208,8 @@ const unless = ElementWatcher.unless;
 class ElementManager {
 	constructor() {
 		this.element = null;
+		this.found = false;
+		this.bypass = false;
 		this.replaced = null;
 	}
 
@@ -219,12 +225,18 @@ class ElementManager {
 		return new ElementManager().replace(selector);
 	}
 
+	static use(element) {
+		return new ElementManager().use(element);
+	}
+
 	find(selector) {
 		this.element = document.querySelector(selector);
+		if (this.element) this.found = true;
 		return this;
 	}
 
 	create(tag) {
+		if (this.bypass) return this;
 		this.element = document.createElement(tag);
 		return this;
 	}
@@ -234,11 +246,23 @@ class ElementManager {
 		return this;
 	}
 
-	or(elementManager) {
-		return (this.element) ? this : elementManager;
+	use(element) {
+		this.element = element;
+		return this;
+	}
+
+	or() {
+		this.bypass = this.found;
+		return this;
+	}
+
+	then() {
+		this.bypass = false;
+		return this;
 	}
 
 	on(parentOrSelector) {
+		if (this.bypass) return this;
 		if (!this.element?.isConnected)
 			(
 				typeof parentOrSelector === "string" ? document.querySelector(parentOrSelector)
@@ -249,6 +273,7 @@ class ElementManager {
 	}
 
 	set(attributes = {}, content = {}) {
+		if (this.bypass) return this;
 		function getKey(givenKey) {
 			return givenKey.match(/^(?:\$__)?(?<val>.+?)(?:__\$)?$/)?.groups?.val ?? givenKey;
 		}
@@ -287,6 +312,7 @@ class ElementManager {
 	}
 
 	move(directionOrSelector = "body", amount = 1) {
+		if (this.bypass) return this;
 		if (["in", "out"].includes(directionOrSelector)) {
 			return this[directionOrSelector](amount);
 		}
@@ -314,6 +340,7 @@ class ElementManager {
 	}
 
 	out(amount = 1) {
+		if (this.bypass) return this;
 		while (amount > 0 && this.element.parentNode && this.element.parentNode !== document.body) {
 			const parentElement = this.element.parentNode;
 			if (parentElement.parentNode)
@@ -324,6 +351,7 @@ class ElementManager {
 	}
 
 	in(amount = 1) {
+		if (this.bypass) return this;
 		while (amount > 0) {
 			const previousSibling = this.element.previousElementSibling;
 			if (!previousSibling) break;
@@ -334,6 +362,7 @@ class ElementManager {
 	}
 
 	hide(hidden = true) {
+		if (this.bypass) return this;
 		const style = this.element?.getAttribute("style") ?? "";
 		const hiddenStyle = ";/*hide--*/;display:none !important;/*--hide*/;";
 		if (hidden && !style.includes(hiddenStyle))
@@ -344,21 +373,37 @@ class ElementManager {
 			return this;
 	}
 
+	remove() {
+		if (this.bypass) return this;
+		this.element?.remove();
+		return this;
+	}
 
+	listen(event, callback) {
+		if (this.bypass) return this;
+		this.element?.addEventListener(event, callback);
+		return this;
+	}
+
+	trigger(event) {
+		if (this.bypass) return this;
+		this.element?.dispatchEvent(new Event(event));
+		return this;
+	}
 }
 
 const find = ElementManager.find;
 const create = ElementManager.create;
 const replace = ElementManager.replace;
-
+const use = ElementManager.use;
 
 /**
  * Ensures that Tailwind CSS is included in the document by finding or creating a link element
  * with the specified attributes and appending it to the document head.
  */
 function ensureTailwindCss() {
-	find("#nussl-core-tailwindcss").or(
-		create("script").set({ src: "https://cdn.tailwindcss.com", id: "nussl-core-tailwindcss", }).on(document.body));
+	find("#nussl-core-tailwindcss").or().
+		create("script").set({ src: "https://cdn.tailwindcss.com", id: "nussl-core-tailwindcss", }).on(document.body);
 }
 
 /**
@@ -367,62 +412,8 @@ function ensureTailwindCss() {
  * @param {string} css - The CSS string to be added to the document.
  */
 function nusslCss(css) {
-	find("#nussl-core-css").or(
-		create("style").set({ type: "text/css", id: "nussl-core-css" }, { textContent: css }).on(document.head));
+	find("#nussl-core-css").or().
+		create("style").set({ type: "text/css", id: "nussl-core-css" }, { textContent: css }).on(document.head);
 	//style.textContent = css;
 }
-
-// /**
-//  * Finds an existing element or creates a new one, setting its attributes and inner content, and appends it to the specified parent element.
-//  *
-//  * @param {string} selector - The CSS selector to use to find an existing element.
-//  * @param {string} tag - The type of HTML element to create (e.g., 'div', 'span', 'p').
-//  * @param {Object} [attributes={}] - An object containing key-value pairs of attributes to set on the element.
-//  * @param {Object} [inner={ html: null, innerText: null, textContent: null }] - An object containing 'html', 'innerText', or 'textContent' to set as the inner content of the element.
-//  * @param {string} [inner.html=null] - HTML content to set inside the element.
-//  * @param {string} [inner.innerText=null] - Inner text to set inside the element.
-//  * @param {string} [inner.textContent=null] - Text content to set inside the element.
-//  * @param {HTMLElement} [parent=document.body] - The parent element to which the new element will be appended. Defaults to document.body.
-//  * @returns {HTMLElement} The existing or newly created HTML element.
-//  */
-// function findOrCreateElement(
-// 	selector,
-// 	tag,
-// 	attributes = {},
-// 	inner = { html: null, innerText: null, textContent: null },
-// 	parent
-// ) {
-// 	const element =
-// 		document.querySelector(selector) ??
-// 		createAndAppendElement(tag, attributes, inner, parent);
-// 	return element;
-// }
-
-// /**
-//  * Creates a new HTML element, sets its attributes and inner content, and appends it to a parent element.
-//  *
-//  * @param {string} tag - The type of HTML element to create (e.g., 'div', 'span', 'p').
-//  * @param {Object} [attributes={}] - An object containing key-value pairs of attributes to set on the element.
-//  * @param {Object} [inner={ html: null, innerText: null, textContent: null }] - An object containing 'html', 'innerText', or 'textContent' to set as the inner content of the element.
-//  * @param {HTMLElement} [parent=document.body] - The parent element to which the new element will be appended. Defaults to document.body.
-//  * @returns {HTMLElement} The newly created HTML element.
-//  */
-// function createAndAppendElement(
-// 	tag,
-// 	attributes = {},
-// 	inner = { html: null, innerText: null, textContent: null },
-// 	parent
-// ) {
-// 	const element = document.createElement(tag);
-// 	inner = inner ?? { html: null, text: null };
-// 	if (attributes)
-// 		Object.keys(attributes).forEach((key) =>
-// 			element.setAttribute(key, attributes[key])
-// 		);
-// 	(parent ?? document.body).append(element);
-// 	if (inner?.innerText) element.innerText = inner.innerText;
-// 	else if (inner?.textContent) element.textContent = inner.textContent;
-// 	else if (inner?.html) element.innerHTML = inner.html;
-// 	return element;
-// }
 

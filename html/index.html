@@ -57,12 +57,12 @@
 			</section>
 			<section>
 				<h2 id="s3">Moar Controls!</h2>
-				<button onclick="alert('Button clicked!')">Click Me</button>
+				<button id="click-me" onclick="console.log('#click-me clicked')">Click Me</button>
 				<label for="options">Options:</label>
 				<select id="options" title="Options">
-					<option value="option1">Option 1</option>
-					<option value="option2">Option 2</option>
-					<option value="option3">Option 3</option>
+					<option value="1">Option 1</option>
+					<option value="2">Option 2</option>
+					<option value="3">Option 3</option>
 				</select>
 				<input type="checkbox" id="checkbox1" name="checkbox1" />
 				<label for="checkbox1">Checkbox</label><br />
@@ -120,16 +120,18 @@ SOFTWARE.
 		once().when("#username").gets("click").then(el => el.value = "nekoyoubi");
 		replace("#s5").with(create("h2").set({id: "s5", style: "color:red;"}, { innerHTML: "The MIT License... duh!" }));
 		find("#s4").set({style: "color:chartreuse;", id: "s6"}, {innerHTML: "Content 2.0!"});
-		find("#s7")
-			.or(create("h1").on("main").up(2).set({ id: "s7", style: "border: 2px solid aqua;"}, { innerHTML: "s7?"}))
-			.set({ style__$: " color:chocolate;"}, { innerHTML: "Content 3.0!" }/**/)
-			.set({ $__style: " text-decoration:underline;"}, { innerHTML: (old) => old.slice(0,-1)+".1" }/**/);
+		find("#s6").or()
+			.create("h1").on("main").up(2).set({ id: "s7", style: "border: 2px solid aqua;"}, { innerHTML: "s7?"})
+			.then()
+				.set({ style__$: " color:chocolate;"}, { innerHTML: "Content 3.0!" }/**/)
+				.set({ $__style: " text-decoration:underline;"}, { innerHTML: (old) => old.slice(0,-1)+".1" }/**/);
 		create("h2").on("main")
 			.set({ id: "s8", style: "color:blue;"}, { innerHTML: "Content 4.0"})
 			.set({}, { innerText__$: ".1!" })
 			.set({}, { $__textContent: "NEWS: ", innerText__$: old => old.slice(0, -1) + "2.34!" });
 		find("#s3").hide(true).hide(false);
-		//find("#s4").or("h2").on("main").set({id:"s44", style: "color:orange;"}, { innerHTML: "New thing" }).move("in");
+		find("#s7").or().create("h2").on("main").set({id:"s44", style: "color:orange;"}, { innerHTML: "New thing" }).move("in");
+		find("#click-me").listen("click", () => find("#options").set({}, { value: "2" }).trigger("change"));
 		//once().any("button").exists(button => console.log(button));
 		//setTimeout(() => createAndAppendElement("code", { id: "codey", style:"width:100px;height:100px;" }, { textContent: "Some code."}, document.body), 2000);
 	</script>
